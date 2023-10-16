@@ -1,0 +1,20 @@
+version: "3"
+services:
+  riskun:
+    restart: always
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    volumes:
+      - ./models:/app/models
+      - ./data:/app/data
+    ports:
+      - 127.0.0.1:7000:7000
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    command: ["app.py", "--server.port", "7000", "--server.baseUrlPath=/riskun"]
