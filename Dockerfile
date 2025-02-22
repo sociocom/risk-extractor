@@ -1,31 +1,22 @@
-# Multiple stage build
-# to generate requirements.txt
-FROM python:3.11-slim as requirements-stage
+FROM python:3.12-slim-bookworm
+# The installer requires curl (and certificates) to download the release archive
+RUN apt-get update && apt-get install -y --no-install-recommends curl ca-certificates
 
-WORKDIR /tmp
+# Download the latest installer
+ADD https://astral.sh/uv/install.sh /uv-installer.sh
 
-RUN pip install poetry
-
-COPY ./pyproject.toml ./poetry.lock* /tmp/
-
-RUN poetry export -f requirements.txt --output requirements.txt --without-hashes
-
-# Below is the actual Dockerfile
-FROM python:3.11.4
-
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1
+# Run the installer then remove it
+RUN sh /uv-installer.sh && rm /uv-installer.sh
 
 WORKDIR /app
+COPY pyproject.toml uv.lock /app/
 
-COPY --from=requirements-stage /tmp/requirements.txt ./requirements.txt
+# Ensure the installed binary is on the `PATH`
+# ENV PATH="/app/.venv/bin:$PATH"
+ENV PATH="/root/.local/bin/:$PATH"
 
-RUN pip install --no-cache-dir --upgrade -r ./requirements.txt
-
-# COPY pyproject.toml ./
-
-# RUN pip install poetry
-# RUN poetry install
+# /app/.venv にライブラリがインストールされる
+RUN uv sync --frozen --no-cache
 
 COPY *.py ./
 # COPY .streamlit ./
@@ -41,6 +32,6 @@ ENV STREAMLIT_THEME_SIDEBAR_CONTRAST=1.2
 ENV STREAMLIT_BROWSER_SERVER_ADDRESS="aoi.naist.jp"
 ENV STREAMLIT_BROWSER_SERVER_PORT=7000
 
-ENTRYPOINT ["streamlit", "run"]
+ENTRYPOINT ["uv", "run", "streamlit", "run"]
 
 # CMD ["app.py", "--server.port", "7000", "--server.baseUrlPath=/riskun"]
